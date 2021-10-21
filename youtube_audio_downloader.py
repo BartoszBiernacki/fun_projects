@@ -2,24 +2,36 @@ from pytube import Channel, YouTube
 from moviepy.editor import *
 import os
 from os.path import isfile, join
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+import time
 
 
-def remove_file(filename):
-    if os.path.exists(filename):
-        os.remove(filename)
+def remove_file(filename, directory=None):
+    if directory is None:
+        full_path = filename
     else:
-        print(f"Error while removing file. File {filename} does not exist")
+        full_path = directory + "//" + filename
+
+    try:
+        os.remove(full_path)
+    except Exception:
+        print(f"Error while removing file. File {full_path} does not exist")
 
 
-def delete_all_files_in_given_directory_and_directory(directory, delete):
-    if delete:
-        for filename in os.listdir(directory):
-            remove_file(filename=directory + "//" + filename)
-        print("All files were removed from your local disk")
-        os.rmdir(path=directory)
-        print(f"Folder {directory} was removed from your local disk")
+def remove_file_with_given_prefix(directory, prefix):
+    filenames = [f for f in os.listdir(directory) if isfile(join(directory, f))]
+    for filename in filenames:
+        if filename.startswith(prefix):
+            remove_file(directory=directory, filename=filename)
+            break
+
+
+def get_number_of_movies_on_channel(YouTube_channel_url):
+    while True:
+        try:
+            number_of_movies_on_the_channel = len(Channel(YouTube_channel_url).video_urls)
+            return number_of_movies_on_the_channel
+        except Exception:
+            pass
 
 
 def get_first_itag(audio_streams):
@@ -30,66 +42,64 @@ def get_first_itag(audio_streams):
     return itag
 
 
-def download_audio_from_all_videos_on_channel(channel_url, output_path, N):
+def convert_mp4_file_to_mp3(filename):
+    if filename.endswith(".mp4"):
+        try:
+            clip = AudioFileClip(filename)
+            clip.write_audiofile(filename.replace(".mp4", ".mp3"), verbose=False, logger=None)
+            clip.close()
+            remove_file(filename=filename)
+        except:
+            print(f"Problem with converting file {filename} to mp3")
+
+
+def download_audio_from_yt_video_as_mp4(url, output_path, file_prefix):
+    while True:
+        try:
+            yt = YouTube(url)
+            itag = get_first_itag(audio_streams=yt.streams.filter(only_audio=True))
+            stream = yt.streams.get_by_itag(itag)
+            filename = stream.download(output_path=output_path, filename_prefix=file_prefix)
+            passed = True
+        except Exception:
+            time.sleep(1)
+            remove_file_with_given_prefix(directory=output_path, prefix=file_prefix)
+            passed = False
+        if passed:
+            break
+    return filename
+
+
+def download_audio_from_all_videos_on_channel(channel_url, output_path, N, file_prefix):
     print("\nDownloading mp4 (only audio) files from YouTube.")
     c = Channel(channel_url)
     i = 0
-    for url in c.video_urls:
-        yt = YouTube(url)
-        itag = get_first_itag(audio_streams=yt.streams.filter(only_audio=True))
-        stream = yt.streams.get_by_itag(itag)
-        stream.download(output_path=output_path)
+    for url in reversed(list(c.video_urls)):
+        dynamic_prefix = file_prefix + "[" + str(f"{i+1:0{len(str(N))}d}") + "] "
+        print(f"Downloading audio from video {i+1} out of {N} ...")
+        filename = download_audio_from_yt_video_as_mp4(url=url, output_path=output_path, file_prefix=dynamic_prefix)
+        print(f"Converting from mp4 to mp3 file {i+1} out of {N} ...")
+        convert_mp4_file_to_mp3(filename=filename)
+        print()
         i += 1
-        print(f"Audio from video {i} out of {N} downloaded.")
     print(f"All {i} audios were downloaded.")
 
 
-def convert_all_downloaded_mp4_to_mp3(output_path, N):
-    print("\nConverting downloaded mp4 files to mp3.")
-    i = 0
-    for filename in os.listdir(output_path):
-        if filename.endswith(".mp4"):
-            filename = output_path + "//" + filename
-            try:
-                clip = AudioFileClip(filename)
-                clip.write_audiofile(filename.replace(".mp4", ".mp3"), verbose=False, logger=None)
-                clip.close()
-                remove_file(filename)
-
-                i += 1
-                print(f"Converted {i} out of {N} files from mp4 to mp3")
-            except:
-                print(f"Problem with converting file {filename} to mp3")
-
-
-def upload_files_to_my_google_drive(directory_that_contains_files, N):
-    print("\nUploading mp3 files to Google Drive.")
-    files = [f for f in os.listdir(directory_that_contains_files) if isfile(join(directory_that_contains_files, f))]
-    
-    gauth = GoogleAuth()
-    drive = GoogleDrive(gauth)
-
-    for i, file in enumerate(files):
-        full_path_to_file = directory_that_contains_files + "//" + file
-        gfile = drive.CreateFile({'parents': [{'id': '1G_M-O7mcci1ixkvcSWZ70l6VbyI7WL6I'}], 'title': file})
-        # Read file and set it as the content of this instance.
-        gfile.SetContentFile(full_path_to_file)
-        gfile.Upload()  # Upload the file.
-        print(f"File number: {i+1} out of {N} was uploaded")
-
-    print(f"All {i+1} files were uploaded\n")
-    print("Program finished.")
-
-
 if __name__ == '__main__':
-    yt_channel_url = "https://www.youtube.com/channel/UCBB9PNuQCHl4f2puROlotJQ/videos"
-    yt_channel_name = "Natix"
+    yt_channel_name = "Radio naukowe"
+    yt_channel_url = "https://www.youtube.com/c/RadioNaukowe/videos"
     destination_folder = "C://Users//HAL//Downloads//YT_audio_downloads//" + yt_channel_name
-    delete_files_after_uploading_on_google_drive = True
+    # modify only lines above ---------------------------------------------------------------------
 
-    number_of_movies_on_the_channel = len(Channel(yt_channel_url).video_urls)
+    print("Main program started.")
+    num_of_movies = get_number_of_movies_on_channel(YouTube_channel_url=yt_channel_url)
+    print(f"There are {num_of_movies} movies on that channel")
 
-    download_audio_from_all_videos_on_channel(channel_url=yt_channel_url, output_path=destination_folder, N=number_of_movies_on_the_channel)
-    convert_all_downloaded_mp4_to_mp3(output_path=destination_folder, N=number_of_movies_on_the_channel)
-    upload_files_to_my_google_drive(directory_that_contains_files=destination_folder, N=number_of_movies_on_the_channel)
-    delete_all_files_in_given_directory_and_directory(directory=destination_folder, delete=delete_files_after_uploading_on_google_drive)
+    download_audio_from_all_videos_on_channel(channel_url=yt_channel_url, output_path=destination_folder,
+                                              N=num_of_movies, file_prefix=yt_channel_name + " ")
+    # ----------------------------------------------------------------------------------------------
+
+    # upload_files_to_my_google_drive(directory_that_contains_files=destination_folder, N=number_of_movies_on_the_channel)
+    # delete_all_files_in_given_directory_and_directory(directory=destination_folder, delete=delete_files_after_uploading_on_google_drive)
+
+
