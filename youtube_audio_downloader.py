@@ -10,7 +10,6 @@ def remove_file(filename, directory=None):
         full_path = filename
     else:
         full_path = directory + "//" + filename
-
     try:
         os.remove(full_path)
     except Exception:
@@ -49,7 +48,7 @@ def convert_mp4_file_to_mp3(filename):
             clip.write_audiofile(filename.replace(".mp4", ".mp3"), verbose=False, logger=None)
             clip.close()
             remove_file(filename=filename)
-        except:
+        except Exception:
             print(f"Problem with converting file {filename} to mp3")
 
 
@@ -86,8 +85,8 @@ def download_audio_from_all_videos_on_channel(channel_url, output_path, N, file_
 
 
 if __name__ == '__main__':
-    yt_channel_name = "Radio naukowe"
-    yt_channel_url = "https://www.youtube.com/c/RadioNaukowe/videos"
+    yt_channel_name = "Test"
+    yt_channel_url = "https://www.youtube.com/c/Sonikkua/videos"
     destination_folder = "C://Users//HAL//Downloads//YT_audio_downloads//" + yt_channel_name
     # modify only lines above ---------------------------------------------------------------------
 
@@ -97,9 +96,3 @@ if __name__ == '__main__':
 
     download_audio_from_all_videos_on_channel(channel_url=yt_channel_url, output_path=destination_folder,
                                               N=num_of_movies, file_prefix=yt_channel_name + " ")
-    # ----------------------------------------------------------------------------------------------
-
-    # upload_files_to_my_google_drive(directory_that_contains_files=destination_folder, N=number_of_movies_on_the_channel)
-    # delete_all_files_in_given_directory_and_directory(directory=destination_folder, delete=delete_files_after_uploading_on_google_drive)
-
-
