@@ -1,0 +1,5 @@
+refactor:
+  skip:
+    - use-fstring-for-concatenation
+    - inline-immediately-returned-variable
+    - merge-nested-ifs
