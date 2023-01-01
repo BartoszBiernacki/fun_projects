@@ -6,6 +6,9 @@ from multiprocessing import Process, Queue, current_process
 from threading import Thread
 import moviepy.editor as editor
 import glob
+from bs4 import BeautifulSoup
+import requests
+from concurrent.futures import ThreadPoolExecutor
 
 
 class YtUrlTypeRecognizer:
@@ -79,12 +82,39 @@ class YtUrlGetter:
     @staticmethod
     def get_channel_name(channel_url: str) -> str:
         return pytube.Channel(channel_url).title
-    
+
     @staticmethod
-    def get_default_filenames_from_playlist(playlist_url: str) -> list[str]:
-        return [pytube.YouTube(url, use_oauth=True, allow_oauth_cache=True)
-                .streams[0].default_filename
-                for url in pytube.Playlist(playlist_url).video_urls]
+    def get_video_title(url: str) -> str:
+        # Make a GET request to the video's URL
+        response = requests.get(url)
+
+        # Parse the HTML content of the page
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Find the title element in the HTML
+        title_element = soup.find('title')
+
+        # Extract the text from the title element
+        title = title_element.text
+
+        # Return the title without at the end ' - youtube'
+        return title[:-10]
+
+    @classmethod
+    def get_video_titles_from_playlist(cls, url: str, num_workers=32) -> list[str]:
+        executor = ThreadPoolExecutor(max_workers=num_workers)
+        urls = pytube.Playlist(url).video_urls
+        titles = list(executor.map(cls.get_video_title, urls))
+        return titles
+
+    @staticmethod
+    def remove_illegal_characters(filename: str) -> str:
+        illegal_characters = r'[\\/:*?"<>|]'
+        return re.sub(illegal_characters, '', filename)
+
+    @classmethod
+    def get_default_filenames(cls, titles: list[str]) -> list[str]:
+        return [cls.remove_illegal_characters(title) for title in titles]
 
     @staticmethod
     def get_prefix_len(url: str) -> int:
@@ -103,8 +133,15 @@ class YtDownloader:
         self.channel_urls = YtUrlTypeRecognizer.get_channel_urls(urls)
         self.clip_urls = YtUrlTypeRecognizer.get_clip_urls(urls)
 
-        self.output_base_path = r'C:\Users\HAL\Downloads\YouTube2\audio'
+        self.output_base_path = os.path.join(self.get_download_folder(), r'YouTube2\audio')
         self.num_of_downloader_workers = 10
+
+    @staticmethod
+    def get_download_folder():
+        # Expand the '~' symbol to the path of the user's home directory
+        home_dir = os.path.expanduser('~')
+        # Return the default download folder path
+        return os.path.join(home_dir, 'Downloads')
 
     @staticmethod
     def create_prefix(url_idx: int, num_of_all_urls: int) -> str:
@@ -147,6 +184,7 @@ class YtDownloader:
             queue_prefix: Queue) -> None:
         print('Putting missing urls to queue')
 
+        print('Getting names of downloaded clips...')
         downloaded_fnames = self.get_names_of_already_download_clips(
             path=self.get_output_path(url=playlist_url),
             prefix_len=YtUrlGetter.get_prefix_len(url=playlist_url)
@@ -155,12 +193,14 @@ class YtDownloader:
         list(map(print, downloaded_fnames))
         print()
 
-        online_names = YtUrlGetter.get_default_filenames_from_playlist(playlist_url)
+        print('Getting names of online clips...')
+        online_titles = YtUrlGetter.get_video_titles_from_playlist(playlist_url)
+        online_names = YtUrlGetter.get_default_filenames(titles=online_titles)
         print('online_names:')
         list(map(print, online_names))
-        exit()
-        urls = YtUrlGetter.get_clip_urls_from_playlist_url(playlist_url)
+        print()
 
+        urls = YtUrlGetter.get_clip_urls_from_playlist_url(playlist_url)
         for idx, (url, online_name) in enumerate(zip(urls, online_names)):
             if online_name not in downloaded_fnames:
                 queue_url.put(url)
@@ -239,7 +279,7 @@ class YtDownloader:
             converter.start()
             processes.append(converter)
 
-        [proces.join() for proces in processes]
+        [process.join() for process in processes]
 
     def download_all_playlists(self):
         for playlist_url in self.playlist_urls:
@@ -252,6 +292,5 @@ if __name__ == '__main__':
     )
 
     yt_downloader.download_all_playlists()
-        
 
         

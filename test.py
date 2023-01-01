@@ -6,7 +6,6 @@ import re
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from itertools import compress
 import time
-import yaml
 import glob
 from bs4 import BeautifulSoup
 import requests
@@ -18,10 +17,6 @@ import moviepy.editor as editor
 
 def get_clip_urls_from_playlist_url(playlist_url: str) -> list[str]:
     return list(pytube.Playlist(playlist_url).video_urls)
-
-
-def get_video_titles_from_playlist(playlist_url: str) -> list[str]:
-    return [video.title for video in pytube.Playlist(playlist_url).videos]
 
 
 def get_names_of_already_download_clips(
@@ -37,7 +32,7 @@ def get_missing_uls(path: str, prefix_len: int) -> list[str]:
                                                            current_prefix_len)
 
 
-def get_video_title(url):
+def get_video_title(url: str) -> str:
     # Make a GET request to the video's URL
     response = requests.get(url)
 
@@ -50,8 +45,20 @@ def get_video_title(url):
     # Extract the text from the title element
     title = title_element.text
 
-    # Return the title
-    return title
+    # Return the title without at the end ' - youtube'
+    return title[:-10]
+
+
+def get_video_titles_from_playlist(url: str, num_workers=32) -> list[str]:
+    executor = ThreadPoolExecutor(max_workers=num_workers)
+    urls = pytube.Playlist(url).video_urls
+    titles = list(executor.map(get_video_title, urls))
+    return titles
+
+
+def remove_illegal_characters(filename: str) -> str:
+    illegal_characters = r'[\\/:*?"<>|]'
+    return re.sub(illegal_characters, '', filename)
 
 
 if __name__ == '__main__':
@@ -61,33 +68,10 @@ if __name__ == '__main__':
     url30 = 'https://www.youtube.com/watch?v=Ltet3RR8XC0&list=PLda6VETsZ3sALHJVBmefYVvZXR9Gp-lqu&index=30'
     url31 = 'https://www.youtube.com/watch?v=4Hc9D89poyw&list=PLda6VETsZ3sALHJVBmefYVvZXR9Gp-lqu&index=31'
 
-
-# 18s
-for video in pytube.Playlist(url_US17).videos:
-    title = video.title
-
-
 start_time = time.perf_counter()
-threads = []
-for video in pytube.Playlist(url_US17).videos:
-    thread = threading.Thread(target=video.title)
-    threads.append(thread)
-
-for thread in threads:
-    thread.start()
-
-for thread in threads:
-    thread.join()
-elapsed_time = time.perf_counter() - start_time
-print(f"Execution time: {elapsed_time:.6f} seconds")
-
-for num_workers in [16, 32]:
-    start_time = time.perf_counter()
-    executor = ThreadPoolExecutor(max_workers=num_workers)
-    urls = pytube.Playlist(url_US17).video_urls
-    titles = list(executor.map(get_video_title, urls))
-    elapsed_time = time.perf_counter() - start_time
-    print(f"[{num_workers}] Execution time: {elapsed_time:.6f} seconds")
+l2 = get_video_titles_from_playlist(url=url_US17, num_workers=12)
+end_time = time.perf_counter()
+print(f'[smart] Executed in {end_time - start_time:0.6f} seconds')
 
 
 # def get_default_filenames_from_playlist(playlist_url: str) -> list[str]:
