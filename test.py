@@ -1,9 +1,12 @@
 import abc
 import pathlib
+import random
+
 import pytube
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from multiprocessing import Process, Queue, current_process
 from itertools import compress
 import time
 import glob
@@ -11,8 +14,9 @@ from bs4 import BeautifulSoup
 import requests
 import time
 import threading
-
+from dataclasses import dataclass
 import moviepy.editor as editor
+from threading import Thread, current_thread
 
 
 def get_clip_urls_from_playlist_url(playlist_url: str) -> list[str]:
@@ -67,6 +71,8 @@ if __name__ == '__main__':
     url_US17 = 'https://www.youtube.com/playlist?list=PLda6VETsZ3sALHJVBmefYVvZXR9Gp-lqu'
     url30 = 'https://www.youtube.com/watch?v=Ltet3RR8XC0&list=PLda6VETsZ3sALHJVBmefYVvZXR9Gp-lqu&index=30'
     url31 = 'https://www.youtube.com/watch?v=4Hc9D89poyw&list=PLda6VETsZ3sALHJVBmefYVvZXR9Gp-lqu&index=31'
+
+
 
 start_time = time.perf_counter()
 l2 = get_video_titles_from_playlist(url=url_US17, num_workers=12)
