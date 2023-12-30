@@ -5,10 +5,10 @@ class Config:
     _home_dir = os.path.expanduser('~')
 
     BASE_OUTPUT_PATH = os.path.join(
-        _home_dir, 'Downloads', 'YouTube2', 'audio')
+        _home_dir, 'Downloads', 'YouTube', 'audio')
 
     NUM_SCRAPERS = 1000
-    NUM_DOWNLOADERS = 10
+    NUM_DOWNLOADERS = 20
     NUM_CONVERTERS = os.cpu_count()
 
     # audio quality based on Yt filesize, quality in <0, 1>
@@ -16,7 +16,7 @@ class Config:
     # 1 --> the best quality & large filesize
     QUALITY = 0
 
-    _DESIRED_EXTENSIONS = ['mp4', 'mp3']
+    _DESIRED_EXTENSIONS = ['mp3', 'mp4']
     DELETE_AFTER_CONVERSION = True
 
     # DO NOT CHANGE ----------------------------------------------------
